@@ -9,7 +9,6 @@
 // 所以平时我们为了避免自己定义的宏意外地与标准头文件定义的宏发生冲突, 我们使用下划线作后缀, 并且不用下划线作前缀
 
 
-
 // 重载版本: operator new/new[]( ), operator delete/delete[]( ) 的声明
 void* operator new(size_t size, const char* file, size_t line);
 void* operator new[](size_t size, const char* file, size_t line);
@@ -37,9 +36,8 @@ class LeakDetector {
 public:
 // LeakDetector.cpp和被测试的.cpp都会包 LeakDetector.h头文件
 // 因此两个源文件中会创建两个静态LeakDetector类对象 exitCounter (两个静态类对象名相同，
-//但是它们的链接属性均为内链接(只在当前源文件有效), 因此不会重定义), 如果此时两个对析
-//构, 会调用两次析构函数, 调用两次内存泄漏检测函数. 而我们的预期是只调用一次内存泄漏
-//检测函数. 所以我们声明一个所有类对象共享的静态变量来实现我们的目的
+// 构, 会调用两次析构函数, 调用两次内存泄漏检测函数. 而我们的预期是只调用一次内存泄漏
+// 检测函数. 所以我们声明一个所有类对象共享的静态变量来实现我们的目的
 
     static size_t _callCount;
 
@@ -49,10 +47,9 @@ public:
 private:
     void _LeakDetector();
 };
+
 //为什么要设计 callCount? callCount 保证了我们的 LeakDetector 只调用了一次。
 // 静态对象
 static LeakDetector exitCounter;
-
-
 
 #endif

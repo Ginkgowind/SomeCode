@@ -142,9 +142,10 @@ void LeakDetector::_LeakDetector() {
 
         std::cout << "指针: " << ptr << " 大小: " << ptr->_size;
 
-        if (NULL != ptr->_file)
-            std::cout << "kkkk";
-//std::cout << " 位于 " << ptr->_file << " 第 " << ptr->_line << " 行";
+        if (NULL != ptr->_file) {
+            std::cout << "字节";
+            std::cout << "  位于 " << ptr->_file << " 第 " << ptr->_line << " 行";
+        }
         else
             std::cout << " (无文件信息)";
 
@@ -155,5 +156,6 @@ void LeakDetector::_LeakDetector() {
     }
 
     std::cout << "存在" << count << "处内存泄露, 共包括 " << memoryAllocated << " byte." << std::endl;
+
     return;
 }
