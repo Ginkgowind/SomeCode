@@ -48,7 +48,9 @@ void* AllocateMemory(size_t size, bool array, const char* file, size_t line) {
 // 更新MemoryList结构成员的值
     newElem->_prev = &memoryListHead;
     newElem->_next = memoryListHead._next;
-    newElem->_size = size;            // 注意, 此处为size而不是newSize. 因为我们管理记录的是 new申请的内存, 验证它是否未释放, 存在内存泄漏问题. 申请 newSize的内存(为 MemoryList结点多申请出的内存), 只是为了实现手动管理内存所必须, 这个内存我们一定会释放, 不需关注. 所以保存 时用size而不是newSize
+    newElem->_size = size;      // 注意, 此处为size而不是newSize. 因为我们管理记录的是 new申请的内存, 验证它是否未释放, 存在内存泄漏问题.
+                                // 申请 newSize的内存(为 MemoryList结点多申请出的内存), 只是为了实现手动管理内存所必须,
+                                // 这个内存我们一定会释放, 不需关注. 所以保存 时用size而不是newSize
     newElem->_isArray = array;
 
 // 如果有文件信息, 则保存下来
@@ -71,7 +73,8 @@ void* AllocateMemory(size_t size, bool array, const char* file, size_t line) {
     memoryAllocated += size;
 
 // 返回new 申请的内存地址
-// 将newElem强转为char* 类型(保证指针+1时每次加的字节数为1) + memoryListHead所占用字节数( 总共申请的newSize字节数 减去memoryListHead结点占用的字节数, 即为new申请的字节数 )
+// 将newElem强转为char* 类型(保证指针+1时每次加的字节数为1) + memoryListHead所占用字节数
+// ( 总共申请的newSize字节数 减去memoryListHead结点占用的字节数, 即为new申请的字节数 )
     return (char*)newElem + sizeof(memoryListHead);
 }
 
