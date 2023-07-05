@@ -9,13 +9,14 @@
  *  4. 怎么设计API，会让用户用起来更爽？
  *  5. 怎么设计API，会让这些API更容易调试、测试？
  */
-typedef enum json_e {
+typedef enum json_e
+{
     JSON_NONE,
-    JSON_BOL,           //BOOL类型
-    JSON_NUM,           //数值类型
-    JSON_STR,           //字符串类型
-    JSON_ARR,           //数组类型
-    JSON_OBJ,           //对象类型
+    JSON_BOL, // BOOL类型
+    JSON_NUM, // 数值类型
+    JSON_STR, // 字符串类型
+    JSON_ARR, // 数组类型
+    JSON_OBJ, // 对象类型
 } json_e;
 
 typedef unsigned int BOOL;
@@ -78,10 +79,10 @@ double json_obj_get_num(const JSON *json, const char *key, double def);
 BOOL json_obj_get_bool(const JSON *json, const char *key);
 const char *json_obj_get_str(const JSON *json, const char *key, const char *def);
 
-int json_arr_count(const JSON *json); 
+int json_arr_count(const JSON *json);
 double json_arr_get_num(const JSON *json, int idx, double def);
 BOOL json_arr_get_bool(const JSON *json, int idx);
-const char *json_arr_get_str(const JSON *json, int idx, const char *def); 
+const char *json_arr_get_str(const JSON *json, int idx, const char *def);
 
 int json_obj_set_num(JSON *json, const char *key, double val);
 int json_obj_set_bool(JSON *json, const char *key, BOOL val);
@@ -111,9 +112,9 @@ json_arr_add_str(dns, "200.200.3.254");
 json_arr_add_str(dns, "200.200.1.1");
 
  */
-//#elif ACTIVE_PLAN == 2
+// #elif ACTIVE_PLAN == 2
 //-----------------------------------------------------------------------------
-//  方案2
+//   方案2
 //-----------------------------------------------------------------------------
 int json_set(JSON *json, const char *path, JSON *val);
 const JSON *json_get(const JSON *json, const char *path);
@@ -158,12 +159,10 @@ sys_listen(port);
 json_free(json);
 */
 
-#endif //ACTIVE_PLAN
+#endif // ACTIVE_PLAN
 
 //-----------------------------------------------------------------------------
 //  TODO: 增加你认为还应该增加的接口
 //-----------------------------------------------------------------------------
 
-
 #endif
-

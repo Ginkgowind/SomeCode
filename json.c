@@ -11,52 +11,61 @@ typedef struct keyvalue keyvalue;
 
 /**
  *  想想：这些结构体定义在.c是为什么？
+ *  答：封装实现细节
  */
 /**
  *  想想：如果要提升内存分配效率，这个结构体该作什么变化？
+ *  答：U32挪到前面，内存对齐
  */
-struct array {
-    value **elems;      /* 想想: 这里如果定义为'value *elems'会怎样？ */
-    U32 count;          //elems中有多少个value*
+struct array
+{
+    value **elems; /* 想想: 这里如果定义为'value *elems'会怎样？
+                       答： 不能全指针操作（？）*/
+    U32 count;     // elems中有多少个value*
 };
 
 /**
  * @brief 对象的键值对
  */
-struct keyvalue {
-    char *key;          //键名
-    value *val;         //值
+struct keyvalue
+{
+    char *key;  // 键名
+    value *val; // 值
 };
 
 /**
  *  想想：如果要提升内存分配效率，这个结构体该作什么变化？
+ *  答：U32挪到前面，内存对齐
  */
-struct object {
-    keyvalue *kvs;      //这是一个keyvalue的数组，可以通过realloc的方式扩充的动态数组
-    U32 count;          //数组kvs中有几个键值对
+struct object
+{
+    keyvalue *kvs; // 这是一个keyvalue的数组，可以通过realloc的方式扩充的动态数组
+    U32 count;     // 数组kvs中有几个键值对
 };
 
 /**
  * @brief JSON值
  */
-struct value {
-    json_e type;        //JSON值的具体类型
-    union {
-        double num;     //数值，当type==JSON_NUM时有效
-        BOOL bol;       //布尔值，当type==JSON_BOL时有效
-        char *str;      //字符串值，堆中分配的一个字符串，当type==JSON_STR时有效
-        array arr;      //值数组，当type==JSON_ARR时有效
-        object obj;     //对象，当type==JSON_OBJ时有效
+struct value
+{
+    json_e type; // JSON值的具体类型
+    union
+    {
+        double num; // 数值，当type==JSON_NUM时有效
+        BOOL bol;   // 布尔值，当type==JSON_BOL时有效
+        char *str;  // 字符串值，堆中分配的一个字符串，当type==JSON_STR时有效
+        array arr;  // 值数组，当type==JSON_ARR时有效
+        object obj; // 对象，当type==JSON_OBJ时有效
     };
 };
 
 /**
  *  @brief 新建一个type类型的JSON值，采用缺省值初始化
- *  
+ *
  *  @param [in] type JSON值的类型，见json_e的定义
  *  @return 堆分配的JSON值
- *  
- *  @details 
+ *
+ *  @details
  *  1. 对于数值，初始化为0
  *  2. 对于BOOL，初始化为FALSE
  *  3. 对于字符串，初始化为NULL
@@ -66,8 +75,10 @@ struct value {
 JSON *json_new(json_e type)
 {
     JSON *json = (JSON *)calloc(1, sizeof(JSON));
-    if (!json) {
-        //想想：为什么输出到stderr，不用printf输出到stdout？
+    if (!json)
+    {
+        // 想想：为什么输出到stderr，不用printf输出到stdout？
+        //  答：区分错误消息与正常输出，并且stderr无缓冲区，会立即输出，方便及时显示错误
         fprintf(stderr, "json_new: calloc(%lu) failed\n", sizeof(JSON));
         return NULL;
     }
@@ -82,7 +93,7 @@ JSON *json_new(json_e type)
  */
 void json_free(JSON *json)
 {
-    //TODO:
+    // TODO:
 }
 /**
  * 获取JSON值json的类型
@@ -101,8 +112,11 @@ json_e json_type(const JSON *json)
  */
 JSON *json_new_bool(BOOL val)
 {
-    //TODO:
-    return NULL;
+    JSON *json = json_new(JSON_BOL);
+    if (!json)
+        return NULL;
+    json->bol = val;
+    return json;
 }
 /**
  * 新建一个数字类型的JSON值
@@ -126,52 +140,54 @@ JSON *json_new_str(const char *str)
 {
     JSON *json;
     assert(str);
-    
+
     json = json_new(JSON_STR);
     if (!json)
         return json;
     json->str = strdup(str);
-    if (!json->str) {
+    if (!json->str)
+    {
         fprintf(stderr, "json_new_str: strdup(%s) failed", str);
         json_free(json);
         return NULL;
     }
     return json;
 }
-//想想：json_num和json_str为什么带一个def参数？
+// 想想：json_num和json_str为什么带一个def参数？
 /**
  * @brief 获取JSON_NUM类型JSON值的数值
- * 
+ *
  * @param json 数值类型的JSON值
  * @param def   类型不匹配时返回的缺省值
  * @return double 如果json是合法的JSON_NUM类型，返回其数值，否则返回缺省值def
  */
 double json_num(const JSON *json, double def)
 {
-    //想想：为什么这里不assert(json)?
+    // 想想：为什么这里不assert(json)?
+    //  答：类似于unordered_map没有assert
     return json && json->type == JSON_NUM ? json->num : def;
 }
 /**
  * @brief 获取JSON_BOOL类型JSON值的布尔值
- * 
+ *
  * @param json 布尔值类型的JSON值
  * @return BOOL 如果json是合法的JSON_BOL类型，返回其数值，否则返回FALSE
  */
 BOOL json_bool(const JSON *json)
 {
-    //想想：为什么这里不assert(json)?
+    // 想想：为什么这里不assert(json)?
     return json && json->type == JSON_BOL ? json->bol : FALSE;
 }
 /**
  * @brief 获取JSON_STR类型JSON值的字符串值
- * 
+ *
  * @param json 字符串类型的JSON值
  * @param def   类型不匹配时返回的缺省值
  * @return const char* 如果json是合法的JSON_STR类型，返回其字符串值，否则返回def
  */
 const char *json_str(const JSON *json, const char *def)
 {
-    //想想：为什么这里不assert(json)?
+    // 想想：为什么这里不assert(json)?
     return json && json->type == JSON_STR ? json->str : def;
 }
 /**
@@ -190,7 +206,8 @@ const JSON *json_get_member(const JSON *json, const char *key)
     assert(key);
     assert(key[0]);
 
-    for (i = 0; i < json->obj.count; ++i) {
+    for (i = 0; i < json->obj.count; ++i)
+    {
         if (strcmp(json->obj.kvs[i].key, key) == 0)
             return json->obj.kvs[i].val;
     }
@@ -206,10 +223,10 @@ const JSON *json_get_member(const JSON *json, const char *key)
 const JSON *json_get_element(const JSON *json, U32 idx)
 {
     assert(json);
-    assert(json->type == JSON_ARR);
+    assert(json->type == JSON_ARR); // 1
     assert(!(json->arr.count > 0 && json->arr.elems == NULL));
 
-    if (json->type != JSON_ARR)
+    if (json->type != JSON_ARR) // 2 和1冲突了
         return NULL;
     if (idx >= json->arr.count)
         return NULL;
@@ -217,21 +234,21 @@ const JSON *json_get_element(const JSON *json, U32 idx)
 }
 /**
  * @brief 把JSON值json以YAML格式输出，保存到名字为fname的文件中
- * 
+ *
  * @param json  JSON值
  * @param fname 输出文件名
  * @return int 0表示成功，<0表示失败
  */
 int json_save(const JSON *json, const char *fname)
 {
-    //TODO:
+    // TODO:
     return -1;
 }
 //  想想：json_add_member和json_add_element中，val应该是堆分配，还是栈分配？
 //  想想：如果json_add_member失败，应该由谁来释放val？
 /**
  * @brief 往对象类型的json中增加一个键值对，键名为key，值为val
- * 
+ *
  * @param json JSON对象
  * @param key 键名，符合正则：[a-zA-Z_][a-zA-Z_-0-9]*
  * @param val 键值，必须是堆分配拥有所有权的JSON值
@@ -250,14 +267,15 @@ JSON *json_add_member(JSON *json, const char *key, JSON *val)
     assert(!(json->obj.count > 0 && json->obj.kvs == NULL));
     assert(key);
     assert(key[0]);
-    //想想: 为啥不用assert检查val？
-    //想想：如果json中已经存在名字为key的成员，怎么办？
-    //TODO:
+    // 想想: 为啥不用assert检查val？
+    // 想想：如果json中已经存在名字为key的成员，怎么办？
+    //  答：报错
+
     return NULL;
 }
 /**
  * @brief 往数组类型的json中追加一个元素
- * 
+ *
  * @param json JSON数组
  * @param val 加入到数组的元素，必须是堆分配拥有所有权的JSON值
  * @details
@@ -269,8 +287,8 @@ JSON *json_add_element(JSON *json, JSON *val)
     assert(json->type == JSON_ARR);
     assert(!(json->arr.count > 0 && json->arr.elems == NULL));
 
-    //想想：为啥不用assert检查val？
-    //TODO:
+    // 想想：为啥不用assert检查val？
+    // TODO:
     return NULL;
 }
 
@@ -329,12 +347,12 @@ BOOL json_obj_get_bool(const JSON *json, const char *key)
  * @details
  * 如果json不是对象类型，则返回def
  * 如果对应的值不是字符串类型，则返回def
- * 如: 
+ * 如:
  *  json: {"key": "str"}
  *  json_obj_get_str(json, "key", NULL) = "str"
  *  json_obj_get_str(json, "noexist", NULL) = NULL
  *  json_obj_get_str(json, "noexist", "") = ""
- *  
+ *
  */
 const char *json_obj_get_str(const JSON *json, const char *key, const char *def)
 {
@@ -346,19 +364,34 @@ const char *json_obj_get_str(const JSON *json, const char *key, const char *def)
 
 int json_obj_set_num(JSON *json, const char *key, double val)
 {
-    //TODO:
+    JSON *child = get_child(json, key, JSON_NUM);
+    if (child)
+    {
+        child->num = val;
+        return 1;
+    }
     return -1;
 }
 
 int json_obj_set_bool(JSON *json, const char *key, BOOL val)
 {
-    //TODO:
+    JSON *child = get_child(json, key, JSON_BOL);
+    if (child)
+    {
+        child->bol = val;
+        return 1;
+    }
     return -1;
 }
 
 int json_obj_set_str(JSON *json, const char *key, const char *val)
 {
-    //TODO:
+    JSON *child = get_child(json, key, JSON_STR);
+    if (child)
+    {
+        child->str = strdup(val);
+        return 1;
+    }
     return -1;
 }
 
@@ -371,41 +404,59 @@ int json_arr_count(const JSON *json)
 
 double json_arr_get_num(const JSON *json, int idx, double def)
 {
-    //TODO:
+    assert(json);
+    assert(json->type == JSON_ARR);
+    assert(!(json->arr.count > 0 && json->arr.elems == NULL));
+
+    if (idx < json->arr.count && json->arr.elems[idx]->type == JSON_NUM)
+        return json->arr.elems[idx]->num;
+
     return def;
 }
 
 BOOL json_arr_get_bool(const JSON *json, int idx)
 {
-    //TODO:
+    assert(json);
+    assert(json->type == JSON_ARR);
+    assert(!(json->arr.count > 0 && json->arr.elems == NULL));
+
+    if (idx < json->arr.count && json->arr.elems[idx]->type == JSON_BOL)
+        return json->arr.elems[idx]->bol;
+
     return FALSE;
 }
 
 const char *json_arr_get_str(const JSON *json, int idx, const char *def)
 {
-    //TODO:
+    assert(json);
+    assert(json->type == JSON_ARR);
+    assert(!(json->arr.count > 0 && json->arr.elems == NULL));
+
+    if (idx < json->arr.count && json->arr.elems[idx]->type == JSON_STR)
+        return json->arr.elems[idx]->str;
+
     return def;
 }
 
 int json_arr_add_num(JSON *json, double val)
 {
-    //TODO:
+    // TODO:
     return -1;
 }
 
 int json_arr_add_bool(JSON *json, BOOL val)
 {
-    //TODO:
+    // TODO:
     return -1;
 }
 
 int json_arr_add_str(JSON *json, const char *val)
 {
-    //TODO:
+    // TODO:
     return -1;
 }
 
-//#elif ACTIVE_PLAN == 2
+// #elif ACTIVE_PLAN == 2
 /*
 json_get和json_get所使用的路径表达式语法：
 
@@ -418,7 +469,7 @@ dot_member ::= '.' member;
 
 /**
  * @brief 交换两个json值的内容
- * 
+ *
  * @param lhs 左手侧JSON值
  * @param rhs 右手侧JSON值
  */
@@ -432,15 +483,16 @@ static void json_swap(JSON *lhs, JSON *rhs)
 /**
  * @brief 路径解析的上下文
  */
-typedef struct query_ctx {
-    JSON *root;         //待查找的根JSON值
-    JSON *val;          //待替换的JSON值
-    const char *path;   //原始路径
+typedef struct query_ctx
+{
+    JSON *root;       // 待查找的根JSON值
+    JSON *val;        // 待替换的JSON值
+    const char *path; // 原始路径
 } query_ctx;
 
 /**
  * @brief 处理查询结果
- * 
+ *
  * @param json  查找到的JSON值
  * @param val   需要替换的JSON值，如果val不为空，表示需要将json替换为val
  * @return const JSON* 查找结果
@@ -449,7 +501,8 @@ static const JSON *deal_query_result(JSON *json, JSON *val)
 {
     assert(json);
 
-    if (val) {
+    if (val)
+    {
         json_swap(json, val);
         json_free(val);
     }
@@ -457,7 +510,7 @@ static const JSON *deal_query_result(JSON *json, JSON *val)
 }
 /**
  * @brief 报告路径解析过程发现的语法错误
- * 
+ *
  * @param ctx   路径解析的上下文
  * @param info  错误说明
  * @param cur   出错位置
@@ -473,7 +526,7 @@ static const JSON *query_child(const query_ctx *ctx, JSON *json, const char *cur
 
 /**
  * @brief 期待解析结束，即希望接下来的是结束符
- * 
+ *
  * @param json  JSON值
  * @param cur   当前解析位置
  * @param val   待替换的JSON值。val为NULL，表示只查询，否则将查到的子孙成员值替换为val
@@ -485,17 +538,20 @@ static const JSON *query_eof(const query_ctx *ctx, JSON *json, const char *cur)
     assert(json);
     assert(cur);
 
-    if (*cur == '\0') {
+    if (*cur == '\0')
+    {
         return deal_query_result(json, ctx->val);
-    } else {
+    }
+    else
+    {
         report_syntax_error(ctx, "JSON path invalid", cur);
         json_free(ctx->val);
         return NULL;
-    }    
+    }
 }
 /**
  * @brief 在JSON值json中查询MEMBER表达式cur对应的子孙成员
- * 
+ *
  * @param json  JSON值
  * @param cur  MEMBER表达式
  * @param val   待替换的JSON值。val为NULL，表示只查询，否则将查到的子孙成员值替换为val
@@ -503,12 +559,12 @@ static const JSON *query_eof(const query_ctx *ctx, JSON *json, const char *cur)
  */
 static const JSON *query_member(const query_ctx *ctx, JSON *json, const char *cur)
 {
-    //TODO:
+    // TODO:
     return NULL;
 }
 /**
  * @brief 在JSON值json中查询DOT_MEMBER表达式cur对应的子孙成员
- * 
+ *
  * @param json  JSON值
  * @param cur  DOT_MEMBER表达式
  * @param val   待替换的JSON值。val为NULL，表示只查询，否则将查到的子孙成员值替换为val
@@ -521,20 +577,24 @@ static const JSON *query_dot_member(const query_ctx *ctx, JSON *json, const char
     assert(json->type == JSON_OBJ);
     assert(cur);
 
-    if (*cur == '.') {
-        if (cur[1] == '\0') {
+    if (*cur == '.')
+    {
+        if (cur[1] == '\0')
+        {
             report_syntax_error(ctx, "unexpected end", cur);
             json_free(ctx->val);
             return NULL;
         }
         return query_member(ctx, json, cur + 1);
-    } else {
+    }
+    else
+    {
         return query_eof(ctx, json, cur);
     }
 }
 /**
  * @brief 在JSON值json中查询INDEX表达式cur对应的子孙成员
- * 
+ *
  * @param json  JSON值
  * @param cur  INDEX表达式
  * @param val   待替换的JSON值。val为NULL，表示只查询，否则将查到的子孙成员值替换为val
@@ -542,12 +602,12 @@ static const JSON *query_dot_member(const query_ctx *ctx, JSON *json, const char
  */
 static const JSON *query_index(const query_ctx *ctx, JSON *json, const char *cur)
 {
-    //TODO:
+    // TODO:
     return NULL;
 }
 /**
  * @brief 在JSON值json中查询CHILD表达式cur对应的子孙成员
- * 
+ *
  * @param json  JSON值
  * @param cur  CHILD表达式
  * @param val   待替换的JSON值。val为NULL，表示只查询，否则将查到的子孙成员值替换为val
@@ -559,12 +619,16 @@ static const JSON *query_child(const query_ctx *ctx, JSON *json, const char *cur
     assert(json);
     assert(cur);
 
-    switch (json_type(json)) {
-    case JSON_NUM: case JSON_STR: case JSON_BOL: case JSON_NONE:
+    switch (json_type(json))
+    {
+    case JSON_NUM:
+    case JSON_STR:
+    case JSON_BOL:
+    case JSON_NONE:
         return query_eof(ctx, json, cur);
     case JSON_ARR:
         return query_index(ctx, json, cur);
-    case JSON_OBJ: 
+    case JSON_OBJ:
         return query_dot_member(ctx, json, cur);
     default:
         assert(!"dead code");
@@ -574,7 +638,7 @@ static const JSON *query_child(const query_ctx *ctx, JSON *json, const char *cur
 
 /**
  * @brief 在JSON值json中查询ROOT表达式cur对应的子孙成员
- * 
+ *
  * @param json  JSON值
  * @param cur  ROOT表达式
  * @param val   待替换的JSON值。val为NULL，表示只查询，否则将查到的子孙成员值替换为val
@@ -591,9 +655,12 @@ static const JSON *query_root(JSON *json, const char *path, JSON *val)
     ctx.path = path;
     ctx.val = val;
 
-    if (json_type(json) == JSON_OBJ) {
+    if (json_type(json) == JSON_OBJ)
+    {
         return query_member(&ctx, json, path);
-    } else {    
+    }
+    else
+    {
         return query_child(&ctx, json, path);
     }
 }
@@ -628,10 +695,10 @@ const JSON *json_get(const JSON *json, const char *path)
 
     return query_root((JSON *)json, path, NULL);
 }
-//#elif ACTIVE_PLAN == 3
+// #elif ACTIVE_PLAN == 3
 /**
  * @brief 设置json成员的值
- * 
+ *
  * @param json JSON值
  * @param path 待操作的子成员在json中的位置，如：basic.dns[0]。NULL表示json本身
  * @param value 子成员的新值，以字符串形式表示，五种可能，字符串："200.200.0.1"，数值：8080，BOOL值：true/false，空数组：[], 空对象：{}
@@ -644,24 +711,24 @@ JSON *json_set_value(JSON *json, const char *path, const char *value)
 {
     assert(json);
     assert(value);
-    //TODO:
+    // TODO:
     return NULL;
 }
 /**
  * @brief 从JSON值json中获取一个子成员的值，子成员所在位置由路径path标识
- * 
+ *
  * @param json JSON值
  * @param path 待操作的子成员在json中的位置，如：basic.dns[0]。NULL表示json本身
  * @return const JSON* path指向的子成员
  */
 const JSON *json_get_value(const JSON *json, const char *path)
 {
-    //TODO:
+    // TODO:
     return NULL;
 }
 /**
  * @brief 从JSON值json中读取一个INT类型配置项的值，配置项的位置由路径path标识
- * 
+ *
  * @param json JSON值
  * @param path 待操作的子成员在json中的位置，如：basic.dns[0]。NULL表示json本身
  * @param def 如果配置项不存在或类型不匹配，返回该值作为缺省值
@@ -676,7 +743,7 @@ int json_get_int(const JSON *json, const char *path, int def)
 }
 /**
  * @brief 从JSON值json中读取一个BOOL类型配置项的值，配置项的位置由路径path标识
- * 
+ *
  * @param json JSON值
  * @param path 待操作的子成员在json中的位置，如：basic.dns[0].enable。NULL表示json本身
  * @return BOOL 配置项的值
@@ -691,7 +758,7 @@ BOOL json_get_bool(const JSON *json, const char *path)
 }
 /**
  * @brief 从JSON值json中读取一个字符串类型配置项的值，配置项的位置由路径path标识
- * 
+ *
  * @param json JSON值
  * @param path 待操作的子成员在json中的位置，如：basic.dns[0].ip。NULL表示json本身
  * @return const char* 如果配置项不存在或类型不匹配，返回该值作为缺省值
@@ -704,5 +771,4 @@ const char *json_get_str(const JSON *json, const char *path, const char *def)
     return json_str(child, def);
 }
 
-#endif //ACTIVE_PLAN
-
+#endif // ACTIVE_PLAN
