@@ -21,15 +21,27 @@ static JSON *create_json(void)
 
     json_add_member(json, "basic", basic);
     json_add_member(basic, "enable", json_new_bool(TRUE));
+    json_add_member(basic, "ip", json_new_str("200.200.3.61"));
     json_add_member(basic, "port", json_new_num(389));
     json_add_member(basic, "timeout", json_new_num(10));
-    json_add_member(basic, "basedn", json_new_str("aa"));
+    json_add_member(basic, "basedn", json_new_str("aaa"));
     json_add_member(basic, "fd", json_new_num(-1));
-
-    //TODO: 补充完善代码，构建出完整的JSON对象(即readme.md中展示的范例)
-    if (!json_add_member(basic, "ip", json_new_str("200.200.3.61")))
+    json_add_member(basic, "maxcnt", json_new_num(133333333333));
+    JSON *dns_arr = json_new(JSON_ARR);
+    if (!dns_arr)
         goto failed_;
+    json_add_element(dns_arr, json_new_str("200.200.0.1"));
+    json_add_element(dns_arr, json_new_str("200.0.0.254"));
+    json_add_member(basic, "dns", dns_arr);
+    json_add_member(basic, "test", json_new_num(133333333333));
+
+    // TODO: 补充完善代码，构建出完整的JSON对象(即readme.md中展示的范例)
+    JSON *advance = json_new(JSON_OBJ);
+    if (!advance)
+        goto failed_;
+
     return json;
+
 failed_:
     json_free(json);
     return NULL;
@@ -37,12 +49,13 @@ failed_:
 /**
  * @brief 后台服务程序使用的配置项
  */
-typedef struct config_st {
+typedef struct config_st
+{
     char *ip;
     int port;
     BOOL enable;
     char *basedn;
-    //TODO: ...
+    // TODO: ...
 } config_st;
 
 /**
@@ -85,7 +98,7 @@ int main(int argc, char *argv[])
         return 1;
     int ret = json_save(json, "./test.yml");
 
-//TODO: ...
+    // TODO: ...
     config_st cfg;
     config_init(&cfg);
     ret = config_load(&cfg, json);
@@ -120,7 +133,7 @@ int main()
     bool enable = json_bool(json_get(json, "basic.enable"));
     const char *ip = json_str(json_get(json, "basic.ip"), "127.0.0.1");
     const char *dns0 = json_str(json_get(val, "[0]"), "192.168.1.1");
-//...
+    //...
     ret = json_save(json, "./test.yml");
     json_free(json);
     return 0;
@@ -143,11 +156,12 @@ int main()
     json_set_value(json, "basic.enable", "true");
     JSON *advance = json_set_value(json, "advance", "{}");
     int ret = json_set_value(advance, "enable", "false");
-    if (ret < 0) {
+    if (ret < 0)
+    {
         perror("json_set_value");
         return 1;
     }
-    //TODO:
+    // TODO:
     json_save(json, "./dns.json");
     json_free(json);
     return 0;
@@ -156,7 +170,8 @@ int main()
 int main()
 {
     JSON *json = json_load("./dns.json");
-    if (!json) {
+    if (!json)
+    {
         perror("json_load");
         return 1;
     }
@@ -165,7 +180,7 @@ int main()
     int port = json_get_int(json, "basic.port", 80);
     unsigned int ip = inet_addr(json_get_str(json, "basic.ip", "127.0.0.1"));
     sys_listen(port);
-    //TODO:
+    // TODO:
     json_free(json);
     return 0;
 }

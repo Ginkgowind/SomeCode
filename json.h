@@ -34,6 +34,10 @@ json_e json_type(const JSON *json);
 void json_free(JSON *json);
 
 int json_save(const JSON *json, const char *fname);
+int json_save_general(const JSON *json, int depth, void *file);
+int json_save_basic(const JSON *json, void *file);
+int json_save_obj(const JSON *json, int depth, void *file);
+int json_save_arr(const JSON *json, int depth, void *file);
 
 double json_num(const JSON *json, double def);
 BOOL json_bool(const JSON *json);
@@ -62,7 +66,7 @@ if (!json || !basic || !dns) {
 }
 json_add_member(json, "basic", basic);
 json_add_member(json, "dns", dns);
-json_add_element(dns, json_new_str("200.200.2.254"))；
+json_add_element(dns, json_new_str("200.200.2.254"));
 json_add_element(dns, json_new_str("192.168.1.1"));
 json_add_member(basic, "enable", json_new_bool(true));
 json_free(json);
@@ -112,7 +116,7 @@ json_arr_add_str(dns, "200.200.3.254");
 json_arr_add_str(dns, "200.200.1.1");
 
  */
-// #elif ACTIVE_PLAN == 2
+#elif ACTIVE_PLAN == 2
 //-----------------------------------------------------------------------------
 //   方案2
 //-----------------------------------------------------------------------------

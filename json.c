@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <malloc.h>
 #include <string.h>
+#include <errno.h>
 #include "json.h"
 
 typedef struct array array;
@@ -20,7 +21,7 @@ typedef struct keyvalue keyvalue;
 struct array
 {
     value **elems; /* 想想: 这里如果定义为'value *elems'会怎样？
-                       答： 不能全指针操作（？）*/
+                       答： 里面的内容在栈上分配，无法满足“转移所有权”的语义，同时会增加分配的开销*/
     U32 count;     // elems中有多少个value*
 };
 
@@ -60,6 +61,15 @@ struct value
 };
 
 /**
+ * @brief json_save使用
+ */
+typedef struct buf_t
+{
+    char *str;
+    unsigned int size;
+} buf_t;
+
+/**
  *  @brief 新建一个type类型的JSON值，采用缺省值初始化
  *
  *  @param [in] type JSON值的类型，见json_e的定义
@@ -93,7 +103,33 @@ JSON *json_new(json_e type)
  */
 void json_free(JSON *json)
 {
-    // TODO:
+    // Done
+    if (json == NULL)
+        return;
+
+    if (json->type == JSON_STR)
+    {
+        free(json->str);
+    }
+    else if (json->type == JSON_ARR)
+    {
+        U32 cnt = json->arr.count;
+        value **elems = json->arr.elems;
+        for (U32 i = 0; i < cnt; i++)
+        {
+            json_free(elems[i]);
+        }
+    }
+    else if (json->type == JSON_OBJ)
+    {
+        U32 cnt = json->obj.count;
+        keyvalue *kvs = json->obj.kvs;
+        for (U32 i = 0; i < cnt; i++)
+        {
+            // free(kvs[i].key);
+            json_free(kvs[i].val);
+        }
+    }
 }
 /**
  * 获取JSON值json的类型
@@ -112,6 +148,7 @@ json_e json_type(const JSON *json)
  */
 JSON *json_new_bool(BOOL val)
 {
+    // Done
     JSON *json = json_new(JSON_BOL);
     if (!json)
         return NULL;
@@ -154,6 +191,7 @@ JSON *json_new_str(const char *str)
     return json;
 }
 // 想想：json_num和json_str为什么带一个def参数？
+// 答：不知道是处于设计上什么样的考虑
 /**
  * @brief 获取JSON_NUM类型JSON值的数值
  *
@@ -164,7 +202,7 @@ JSON *json_new_str(const char *str)
 double json_num(const JSON *json, double def)
 {
     // 想想：为什么这里不assert(json)?
-    //  答：类似于unordered_map没有assert
+    // 答：出于设计上的考虑，增加容错，通过返回值为false来处理
     return json && json->type == JSON_NUM ? json->num : def;
 }
 /**
@@ -176,6 +214,7 @@ double json_num(const JSON *json, double def)
 BOOL json_bool(const JSON *json)
 {
     // 想想：为什么这里不assert(json)?
+    // 答：同上
     return json && json->type == JSON_BOL ? json->bol : FALSE;
 }
 /**
@@ -188,6 +227,7 @@ BOOL json_bool(const JSON *json)
 const char *json_str(const JSON *json, const char *def)
 {
     // 想想：为什么这里不assert(json)?
+    // 答：同上
     return json && json->type == JSON_STR ? json->str : def;
 }
 /**
@@ -242,10 +282,101 @@ const JSON *json_get_element(const JSON *json, U32 idx)
 int json_save(const JSON *json, const char *fname)
 {
     // TODO:
-    return -1;
+    // 打开文件，以写入方式打开（如果文件不存在，则创建新文件）
+    FILE *file = fopen(fname, "w");
+    if (file == NULL)
+    {
+        fprintf(stderr, "open file [%s] failed, errno: %d\n", fname, errno);
+        return -1;
+    }
+
+    json_save_general(json, 0, file);
+
+    fflush(file);
+
+    return 0;
 }
+
+int json_save_general(const JSON *json, int depth, void *file)
+{
+    if (json->type == JSON_OBJ)
+    {
+        json_save_obj(json, depth, file); // 不加depth
+    }
+    else if (json->type == JSON_ARR)
+    {
+        json_save_arr(json, depth, file);
+    }
+    else
+    {
+        json_save_basic(json, file);
+    }
+}
+
+int json_save_basic(const JSON *json, void *file)
+{
+    if (json->type == JSON_NUM)
+        fprintf(file, "%.15g", json->num);
+    else if (json->type == JSON_BOL)
+        fprintf(file, json->bol == 1 ? "true" : "false");
+    else if (json->type == JSON_STR)
+    {
+        char *str = json->str;
+        // 替换并写入文件
+        size_t len = strlen(str);
+        for (size_t i = 0; i < len; i++)
+        {
+            if (str[i] == '\n')
+                fputs("\\n", file);
+            else
+                fputc(str[i], file);
+        }
+    }
+}
+
+int json_save_obj(const JSON *json, int depth, void *file)
+{
+    for (int i = 0; i < json->obj.count; i++)
+    {
+        for (int i = 0; i < depth; i++) // 输出缩进
+            fputs("  ", file);
+        fputs(json->obj.kvs[i].key, file);
+        fputs(": ", file);
+
+        JSON *jsonval = json->obj.kvs[i].val;
+        if (jsonval->type == JSON_OBJ || jsonval->type == JSON_ARR)
+        {
+            fputc('\n', file); // 如果value是obj或arr就换行
+            json_save_general(jsonval, depth + 1, file);
+        }
+        else
+        {
+            json_save_general(jsonval, depth, file);
+            fputc('\n', file);
+        }
+    }
+
+    return 0;
+}
+
+int json_save_arr(const JSON *json, int depth, void *file)
+{
+    for (int i = 0; i < json->arr.count; i++)
+    {
+        for (int i = 0; i < depth; i++) // 输出缩进
+            fputs("  ", file);
+        fputs("- ", file); // TODO:这里可能要加depth，应对情况：数组里包含对象
+
+        JSON *jsonval = json->arr.elems[i];
+        json_save_general(jsonval, depth, file);
+        fputc('\n', file);
+    }
+}
+
 //  想想：json_add_member和json_add_element中，val应该是堆分配，还是栈分配？
+//  答：堆分配，因为需要满足下面所说的转移所有权
 //  想想：如果json_add_member失败，应该由谁来释放val？
+//  答：由json_add_member来释放，下面2)解释了
 /**
  * @brief 往对象类型的json中增加一个键值对，键名为key，值为val
  *
@@ -263,15 +394,38 @@ int json_save(const JSON *json, const char *fname)
  */
 JSON *json_add_member(JSON *json, const char *key, JSON *val)
 {
+    // Done
     assert(json->type == JSON_OBJ);
+    // count==0，通过 | count>0 && json->obj.kvs!=NULL 通过
+    // count>0 && json->obj.kvs==NULL 不通过
     assert(!(json->obj.count > 0 && json->obj.kvs == NULL));
     assert(key);
     assert(key[0]);
     // 想想: 为啥不用assert检查val？
+    // 答：因为需要支持 "json_add_member(json, "port", json_new_num(80));"，所以允许val为NULL
     // 想想：如果json中已经存在名字为key的成员，怎么办？
-    //  答：报错
+    // 答：参考unordered_map::insert，返回已存在的val
+    // TODO: 加入key的正则匹配判断
+    for (U32 i = 0; i < json->obj.count; i++)
+    {
+        // 检查有没有相同的
+        if (strcmp(json->obj.kvs[i].key, key) == 0)
+        {
+            json_free(val);
+            return NULL;
+        }
+    }
 
-    return NULL;
+    if (json->obj.count == 0)
+        json->obj.kvs = malloc(sizeof(keyvalue));
+    else
+        json->obj.kvs = realloc(json->obj.kvs, sizeof(keyvalue) * (json->obj.count + 1));
+    json->obj.kvs[json->obj.count].key = key;
+    json->obj.kvs[json->obj.count].val = val;
+    json->obj.count++;
+    // TODO: 转移所有权的话，val要不要置空？应该不用（
+
+    return val;
 }
 /**
  * @brief 往数组类型的json中追加一个元素
@@ -283,13 +437,23 @@ JSON *json_add_member(JSON *json, const char *key, JSON *val)
  */
 JSON *json_add_element(JSON *json, JSON *val)
 {
+    // Done
     assert(json);
     assert(json->type == JSON_ARR);
     assert(!(json->arr.count > 0 && json->arr.elems == NULL));
 
     // 想想：为啥不用assert检查val？
-    // TODO:
-    return NULL;
+    // 答：满足转移所有权，同上一个函数
+    // TODO: 添加元素失败就返回NULL，但怎么才会添加失败？
+    if (json->arr.count == 0)
+        json->arr.elems = malloc(sizeof(value *));
+    else
+        json->arr.elems = realloc(json->arr.elems, sizeof(value *) * (json->arr.count + 1));
+
+    json->arr.elems[json->arr.count] = val;
+    json->arr.count++;
+
+    return val;
 }
 
 #if ACTIVE_PLAN == 1
@@ -364,6 +528,7 @@ const char *json_obj_get_str(const JSON *json, const char *key, const char *def)
 
 int json_obj_set_num(JSON *json, const char *key, double val)
 {
+    // Done
     JSON *child = get_child(json, key, JSON_NUM);
     if (child)
     {
@@ -375,6 +540,7 @@ int json_obj_set_num(JSON *json, const char *key, double val)
 
 int json_obj_set_bool(JSON *json, const char *key, BOOL val)
 {
+    // Done
     JSON *child = get_child(json, key, JSON_BOL);
     if (child)
     {
@@ -386,6 +552,7 @@ int json_obj_set_bool(JSON *json, const char *key, BOOL val)
 
 int json_obj_set_str(JSON *json, const char *key, const char *val)
 {
+    // Done
     JSON *child = get_child(json, key, JSON_STR);
     if (child)
     {
@@ -404,6 +571,7 @@ int json_arr_count(const JSON *json)
 
 double json_arr_get_num(const JSON *json, int idx, double def)
 {
+    // Done
     assert(json);
     assert(json->type == JSON_ARR);
     assert(!(json->arr.count > 0 && json->arr.elems == NULL));
@@ -416,6 +584,7 @@ double json_arr_get_num(const JSON *json, int idx, double def)
 
 BOOL json_arr_get_bool(const JSON *json, int idx)
 {
+    // Done
     assert(json);
     assert(json->type == JSON_ARR);
     assert(!(json->arr.count > 0 && json->arr.elems == NULL));
@@ -428,6 +597,7 @@ BOOL json_arr_get_bool(const JSON *json, int idx)
 
 const char *json_arr_get_str(const JSON *json, int idx, const char *def)
 {
+    // Done
     assert(json);
     assert(json->type == JSON_ARR);
     assert(!(json->arr.count > 0 && json->arr.elems == NULL));
@@ -438,25 +608,48 @@ const char *json_arr_get_str(const JSON *json, int idx, const char *def)
     return def;
 }
 
+// TODO: 以下三个函数都假定数组内元素类型可以不同
+// 且返回值有待优化，即根据 json_new_...函数是否创建成功来判断
 int json_arr_add_num(JSON *json, double val)
 {
-    // TODO:
+    // Done
+    assert(json);
+    assert(json->type == JSON_ARR);
+
+    json->arr.elems = realloc(json->arr.elems, sizeof(value *) * (json->arr.count + 1));
+    json->arr.elems[json->arr.count] = json_new_num(val);
+    json->arr.count++;
+
     return -1;
 }
 
 int json_arr_add_bool(JSON *json, BOOL val)
 {
-    // TODO:
+    // Done
+    assert(json);
+    assert(json->type == JSON_ARR);
+
+    json->arr.elems = realloc(json->arr.elems, sizeof(value *) * (json->arr.count + 1));
+    json->arr.elems[json->arr.count] = json_new_bool(val);
+    json->arr.count++;
+
     return -1;
 }
 
 int json_arr_add_str(JSON *json, const char *val)
 {
-    // TODO:
+    // Done
+    assert(json);
+    assert(json->type == JSON_ARR);
+
+    json->arr.elems = realloc(json->arr.elems, sizeof(value *) * (json->arr.count + 1));
+    json->arr.elems[json->arr.count] = json_new_str(val);
+    json->arr.count++;
+
     return -1;
 }
 
-// #elif ACTIVE_PLAN == 2
+#elif ACTIVE_PLAN == 2
 /*
 json_get和json_get所使用的路径表达式语法：
 
@@ -695,7 +888,7 @@ const JSON *json_get(const JSON *json, const char *path)
 
     return query_root((JSON *)json, path, NULL);
 }
-// #elif ACTIVE_PLAN == 3
+#elif ACTIVE_PLAN == 3
 /**
  * @brief 设置json成员的值
  *
