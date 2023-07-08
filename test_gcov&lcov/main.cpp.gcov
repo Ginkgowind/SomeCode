@@ -1,0 +1,17 @@
+        -:    0:Source:main.cpp
+        -:    0:Graph:main.gcno
+        -:    0:Data:main.gcda
+        -:    0:Runs:2
+        -:    1:#include <iostream>
+        -:    2:using namespace std;
+        -:    3:
+        2:    4:int main()
+        -:    5:{
+        2:    6:    int num = 1;
+        2:    7:    char *str = "123";
+        2:    8:    cout << str << num << endl;
+        2:    9:    if (num == 1)
+        2:   10:        cout << " is 1";
+        -:   11:    else
+    #####:   12:        cout << "is not 1";
+        2:   13:}
